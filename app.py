@@ -88,17 +88,16 @@ def index():
         db_path = os.path.join(os.getcwd(), 'miramare_products.db')
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
+        c.execute('''SELECT p.*, 
+                     (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
+                     (SELECT COUNT(*) FROM product_videos WHERE product_id = p.id) as video_count
+                     FROM products p ORDER BY p.updated_date DESC''')
+        products = c.fetchall()
+        conn.close()
+        return render_template('index.html', products=products)
     except Exception as e:
-        print(f"Database connection error: {e}")
-        return render_template('index.html', products=[])
-    c.execute('''SELECT p.*, 
-                 (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
-                 (SELECT COUNT(*) FROM product_videos WHERE product_id = p.id) as video_count
-                 FROM products p ORDER BY p.updated_date DESC''')
-    products = c.fetchall()
-    conn.close()
-    
-    return render_template('index.html', products=products)
+        print(f"Homepage error: {e}")
+        return f"<h1>Hotel Miramare - Sistema Gestione Arredamento</h1><p>Errore: {str(e)}</p><p><a href='/health'>Health Check</a></p>"
 
 @app.route('/add_product', methods=['GET', 'POST'])
 def add_product():
