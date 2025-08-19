@@ -85,6 +85,9 @@ def init_db():
 @app.route('/')
 def index():
     try:
+        # Ensure database is initialized
+        init_db()
+        
         db_path = os.path.join(os.getcwd(), 'miramare_products.db')
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
