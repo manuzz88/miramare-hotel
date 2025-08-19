@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <h1 class="display-4 mb-4">
+                    <i class="fas fa-hotel"></i> Hotel Miramare Sanremo
+                </h1>
+                <p class="lead mb-4">Sistema di gestione completo per l'arredamento dell'hotel. Organizza, cataloga e gestisci tutti i prodotti di arredamento provenienti da fornitori internazionali.</p>
+                <a href="{{ url_for('add_product') }}" class="btn btn-light btn-lg">
+                    <i class="fas fa-plus"></i> Aggiungi Nuovo Prodotto
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Statistics Cards -->
+    <div class="row mb-5">
+        <div class="col-md-3 mb-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ products|length }}</div>
+                <div class="text-muted">Prodotti Totali</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ products|selectattr('14', 'equalto', 'Approvato')|list|length }}</div>
+                <div class="text-muted">Approvati</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ products|selectattr('14', 'equalto', 'In Valutazione')|list|length }}</div>
+                <div class="text-muted">In Valutazione</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ (products|sum(attribute=16) or 0)|round(2) }}</div>
+                <div class="text-muted">Immagini Totali</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Cerca prodotti...">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="categoryFilter">
+                        <option value="">Tutte le categorie</option>
+                        <option value="Letti">Letti</option>
+                        <option value="Bagno">Bagno</option>
+                        <option value="Frigorifero">Frigorifero</option>
+                        <option value="Mobili">Mobili</option>
+                        <option value="Illuminazione">Illuminazione</option>
+                        <option value="Tessuti">Tessuti</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">Tutti gli stati</option>
+                        <option value="In Valutazione">In Valutazione</option>
+                        <option value="Approvato">Approvato</option>
+                        <option value="Rifiutato">Rifiutato</option>
+                        <option value="Ordinato">Ordinato</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary w-100" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Table -->
+    {% if products %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Elenco Prodotti</h5>
+            <a href="{{ url_for('generate_report') }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-file-pdf"></i> Genera Report
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="productsTable">
+                    <thead>
+                        <tr>
+                            <th>Nome Prodotto</th>
+                            <th>Categoria</th>
+                            <th>Fornitore</th>
+                            <th>Prezzo</th>
+                            <th>Stato</th>
+                            <th>Media</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr class="product-row" data-category="{{ product[2] }}" data-status="{{ product[14] }}" data-name="{{ product[1]|lower }}">
+                            <td>
+                                <strong>{{ product[1] }}</strong>
+                                <br>
+                                <small class="text-muted">{{ product[6] if product[6] else 'N/A' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ product[2] }}</span>
+                            </td>
+                            <td>{{ product[3] }}</td>
+                            <td>
+                                <strong>{{ "%.2f"|format(product[4]) }} {{ product[5] }}</strong>
+                                {% if product[7] %}
+                                <br><small class="text-muted">{{ product[7] }} {{ product[8] }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if product[14] == 'Approvato' %}
+                                    <span class="badge bg-success">{{ product[14] }}</span>
+                                {% elif product[14] == 'Rifiutato' %}
+                                    <span class="badge bg-danger">{{ product[14] }}</span>
+                                {% elif product[14] == 'Ordinato' %}
+                                    <span class="badge bg-info">{{ product[14] }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ product[14] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if product[16] > 0 %}
+                                    <i class="fas fa-images text-primary"></i> {{ product[16] }}
+                                {% endif %}
+                                {% if product[17] > 0 %}
+                                    <i class="fas fa-video text-danger"></i> {{ product[17] }}
+                                {% endif %}
+                                {% if product[16] == 0 and product[17] == 0 %}
+                                    <span class="text-muted">Nessun media</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('view_product', id=product[0]) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('edit_product', id=product[0]) }}" class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{{ url_for('delete_product', id=product[0]) }}" 
+                                       class="btn btn-sm btn-outline-danger"
+                                       onclick="return confirm('Sei sicuro di voler eliminare questo prodotto?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-box-open fa-4x text-muted mb-4"></i>
+        <h3 class="text-muted">Nessun prodotto presente</h3>
+        <p class="text-muted">Inizia aggiungendo il tuo primo prodotto di arredamento</p>
+        <a href="{{ url_for('add_product') }}" class="btn btn-primary btn-lg">
+            <i class="fas fa-plus"></i> Aggiungi Primo Prodotto
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Search and filter functionality
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const productRows = document.querySelectorAll('.product-row');
+
+    function filterProducts() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedCategory = categoryFilter.value;
+        const selectedStatus = statusFilter.value;
+
+        productRows.forEach(row => {
+            const productName = row.dataset.name;
+            const productCategory = row.dataset.category;
+            const productStatus = row.dataset.status;
+
+            const matchesSearch = productName.includes(searchTerm);
+            const matchesCategory = !selectedCategory || productCategory === selectedCategory;
+            const matchesStatus = !selectedStatus || productStatus === selectedStatus;
+
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function clearFilters() {
+        searchInput.value = '';
+        categoryFilter.value = '';
+        statusFilter.value = '';
+        filterProducts();
+    }
+
+    searchInput.addEventListener('input', filterProducts);
+    categoryFilter.addEventListener('change', filterProducts);
+    statusFilter.addEventListener('change', filterProducts);
+</script>
+{% endblock %}

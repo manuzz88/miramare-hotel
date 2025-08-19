@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Report Prodotti - Hotel Miramare{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row no-print mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-file-pdf"></i> Report Completo Prodotti</h2>
+                    <p class="text-muted">Hotel Miramare - Sanremo</p>
+                </div>
+                <div class="btn-group">
+                    <button onclick="window.print()" class="btn btn-primary">
+                        <i class="fas fa-print"></i> Stampa Report
+                    </button>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Header -->
+    <div class="d-none d-print-block mb-4">
+        <div class="text-center">
+            <h1>Hotel Miramare - Sanremo</h1>
+            <h2>Report Completo Prodotti di Arredamento</h2>
+            <p>Generato il: <span id="currentDate"></span></p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Riepilogo Generale</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="stats-number">{{ products|length }}</div>
+                            <div class="text-muted">Prodotti Totali</div>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="stats-number text-success">{% set approved_count = 0 %}{% for product in products %}{% if product[14] == 'Approvato' %}{% set approved_count = approved_count + 1 %}{% endif %}{% endfor %}{{ approved_count }}</div>
+                            <div class="text-muted">Approvati</div>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="stats-number text-warning">{% set evaluation_count = 0 %}{% for product in products %}{% if product[14] == 'In Valutazione' %}{% set evaluation_count = evaluation_count + 1 %}{% endif %}{% endfor %}{{ evaluation_count }}</div>
+                            <div class="text-muted">In Valutazione</div>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="stats-number text-primary">{% set media_count = 0 %}{% for product in products %}{% set media_count = media_count + (product[16] or 0) + (product[17] or 0) %}{% endfor %}{{ media_count }}</div>
+                            <div class="text-muted">File Multimediali</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products by Category -->
+    {% set categories = {} %}
+    {% for product in products %}
+        {% set category = product[2] %}
+        {% if category not in categories %}
+            {% set _ = categories.update({category: []}) %}
+        {% endif %}
+        {% set _ = categories[category].append(product) %}
+    {% endfor %}
+    {% for category, category_products in categories.items() %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-tag"></i> {{ category }} 
+                <span class="badge bg-secondary ms-2">{{ category_products|list|length }} prodotti</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Nome Prodotto</th>
+                            <th>Fornitore</th>
+                            <th>Prezzo</th>
+                            <th>Dimensioni</th>
+                            <th>Materiale</th>
+                            <th>Stato</th>
+                            <th class="no-print">Media</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in category_products %}
+                        <tr>
+                            <td>
+                                <strong>{{ product[1] }}</strong>
+                                {% if product[11] %}
+                                <br><small class="text-muted">{{ product[11][:100] }}{% if product[11]|length > 100 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ product[3] }}</td>
+                            <td>
+                                <strong>{{ "%.2f"|format(product[4]) }} {{ product[5] }}</strong>
+                                {% if product[7] %}
+                                <br><small class="text-muted">{{ product[7] }} {{ product[8] }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ product[6] or 'N/A' }}</td>
+                            <td>
+                                {% if product[10] %}{{ product[10] }}{% endif %}
+                                {% if product[9] and product[10] %}<br>{% endif %}
+                                {% if product[9] %}<small class="text-muted">{{ product[9] }}</small>{% endif %}
+                                {% if not product[10] and not product[9] %}N/A{% endif %}
+                            </td>
+                            <td>
+                                {% if product[14] == 'Approvato' %}
+                                    <span class="badge bg-success">{{ product[14] }}</span>
+                                {% elif product[14] == 'Rifiutato' %}
+                                    <span class="badge bg-danger">{{ product[14] }}</span>
+                                {% elif product[14] == 'Ordinato' %}
+                                    <span class="badge bg-info">{{ product[14] }}</span>
+                                {% elif product[14] == 'Ricevuto' %}
+                                    <span class="badge bg-primary">{{ product[14] }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ product[14] }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="no-print">
+                                {% if product[16] > 0 %}
+                                    <i class="fas fa-images text-primary"></i> {{ product[16] }}
+                                {% endif %}
+                                {% if product[17] > 0 %}
+                                    <i class="fas fa-video text-danger"></i> {{ product[17] }}
+                                {% endif %}
+                                {% if product[16] == 0 and product[17] == 0 %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Summary by Status -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-flag"></i> Riepilogo per Stato</h5>
+        </div>
+        <div class="card-body">
+            {% set status_groups = {} %}
+            {% for product in products %}
+                {% set status = product[14] %}
+                {% if status not in status_groups %}
+                    {% set _ = status_groups.update({status: []}) %}
+                {% endif %}
+                {% set _ = status_groups[status].append(product) %}
+            {% endfor %}
+            <div class="row">
+                {% for status, status_products in status_groups.items() %}
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            {% if status == 'Approvato' %}
+                                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                            {% elif status == 'Rifiutato' %}
+                                <i class="fas fa-times-circle fa-2x text-danger mb-2"></i>
+                            {% elif status == 'Ordinato' %}
+                                <i class="fas fa-shopping-cart fa-2x text-info mb-2"></i>
+                            {% elif status == 'Ricevuto' %}
+                                <i class="fas fa-box fa-2x text-primary mb-2"></i>
+                            {% else %}
+                                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                            {% endif %}
+                            <h5>{{ status }}</h5>
+                            <div class="stats-number">{{ status_products|length }}</div>
+                            <small class="text-muted">prodotti</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Analysis -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-euro-sign"></i> Analisi Costi</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center mb-3">
+                    <div class="stats-number text-primary">
+                        {% set total_value = 0 %}{% for product in products %}{% set total_value = total_value + (product[4] or 0) %}{% endfor %}{{ "%.2f"|format(total_value) }}
+                    </div>
+                    <div class="text-muted">Valore Totale Stimato (EUR)</div>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="stats-number text-success">
+                        {% set approved_value = 0 %}{% for product in products %}{% if product[14] == 'Approvato' %}{% set approved_value = approved_value + (product[4] or 0) %}{% endif %}{% endfor %}{{ "%.2f"|format(approved_value) }}
+                    </div>
+                    <div class="text-muted">Valore Prodotti Approvati (EUR)</div>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="stats-number text-info">
+                        {% set ordered_value = 0 %}{% for product in products %}{% if product[14] == 'Ordinato' %}{% set ordered_value = ordered_value + (product[4] or 0) %}{% endif %}{% endfor %}{{ "%.2f"|format(ordered_value) }}
+                    </div>
+                    <div class="text-muted">Valore Prodotti Ordinati (EUR)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-5 mb-4">
+        <hr>
+        <p class="text-muted">
+            <small>
+                Report generato automaticamente dal Sistema di Gestione Arredamento Hotel Miramare<br>
+                Sanremo - <span id="footerDate"></span>
+            </small>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/it.min.js"></script>
+<script>
+    // Set Italian locale for moment.js
+    moment.locale('it');
+    
+    // Update timestamps
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = moment().format('DD/MM/YYYY HH:mm');
+        const currentDateEl = document.getElementById('currentDate');
+        const footerDateEl = document.getElementById('footerDate');
+        
+        if (currentDateEl) currentDateEl.textContent = now;
+        if (footerDateEl) footerDateEl.textContent = now;
+    });
+
+    // Print optimization
+    window.addEventListener('beforeprint', function() {
+        document.title = 'Report_Prodotti_Miramare_' + moment().format('YYYY-MM-DD');
+    });
+</script>
+
+<style>
+    @media print {
+        .container-fluid {
+            max-width: none !important;
+            padding: 0 !important;
+        }
+        
+        .card {
+            border: 1px solid #dee2e6 !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+            margin-bottom: 20px !important;
+        }
+        
+        .card-header {
+            background-color: #f8f9fa !important;
+            border-bottom: 1px solid #dee2e6 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .badge {
+            border: 1px solid #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .stats-number {
+            font-weight: bold !important;
+            color: #000 !important;
+        }
+        
+        .table {
+            font-size: 12px !important;
+        }
+        
+        .table th {
+            background-color: #e9ecef !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: #000 !important;
+        }
+    }
+</style>
+{% endblock %}

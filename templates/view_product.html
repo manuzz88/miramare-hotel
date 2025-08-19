@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product[1] }} - Hotel Miramare{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">{{ product[1] }}</h2>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-tag"></i> {{ product[2] }} | 
+                        <i class="fas fa-calendar"></i> Aggiunto il {{ product[13][:10] }}
+                    </p>
+                </div>
+                <div class="btn-group">
+                    <a href="{{ url_for('edit_product', id=product[0]) }}" class="btn btn-warning">
+                        <i class="fas fa-edit"></i> Modifica
+                    </a>
+                    <a href="{{ url_for('delete_product', id=product[0]) }}" 
+                       class="btn btn-danger"
+                       onclick="return confirm('Sei sicuro di voler eliminare questo prodotto?')">
+                        <i class="fas fa-trash"></i> Elimina
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Product Details -->
+        <div class="col-lg-8">
+            <!-- Basic Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Informazioni Prodotto</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Nome:</strong><br>
+                            <span class="fs-5">{{ product[1] }}</span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Categoria:</strong><br>
+                            <span class="badge bg-secondary fs-6">{{ product[2] }}</span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Fornitore:</strong><br>
+                            {{ product[3] }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Prezzo:</strong><br>
+                            <span class="fs-4 text-primary">{{ "%.2f"|format(product[4]) }} {{ product[5] }}</span>
+                        </div>
+                        {% if product[6] %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Dimensioni:</strong><br>
+                            {{ product[6] }}
+                        </div>
+                        {% endif %}
+                        {% if product[7] %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Peso:</strong><br>
+                            {{ product[7] }} {{ product[8] }}
+                        </div>
+                        {% endif %}
+                        {% if product[9] %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Colore:</strong><br>
+                            {{ product[9] }}
+                        </div>
+                        {% endif %}
+                        {% if product[10] %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Materiale:</strong><br>
+                            {{ product[10] }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if product[11] %}
+                    <div class="mt-3">
+                        <strong>Descrizione:</strong>
+                        <p class="mt-2">{{ product[11] }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if product[12] %}
+                    <div class="mt-3">
+                        <strong>Note:</strong>
+                        <p class="mt-2 text-muted">{{ product[12] }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Images Gallery -->
+            {% if images %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-images"></i> Galleria Immagini ({{ images|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="image-gallery">
+                        {% for image in images %}
+                        <div class="image-item">
+                            <img src="{{ url_for('static', filename='uploads/images/' + image[2]) }}" 
+                                 alt="{{ image[3] }}" 
+                                 class="img-fluid"
+                                 data-bs-toggle="modal" 
+                                 data-bs-target="#imageModal"
+                                 data-bs-image="{{ url_for('static', filename='uploads/images/' + image[2]) }}"
+                                 data-bs-title="{{ image[3] }}"
+                                 style="cursor: pointer;">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Videos Gallery -->
+            {% if videos %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-video"></i> Video ({{ videos|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="video-gallery">
+                        {% for video in videos %}
+                        <div class="video-item">
+                            <video controls class="w-100">
+                                <source src="{{ url_for('static', filename='uploads/videos/' + video[2]) }}" 
+                                        type="video/mp4">
+                                Il tuo browser non supporta la riproduzione video.
+                            </video>
+                            <div class="mt-2">
+                                <small class="text-muted">{{ video[3] }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-flag"></i> Stato Prodotto</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if product[14] == 'Approvato' %}
+                        <span class="badge bg-success fs-5 p-3">
+                            <i class="fas fa-check-circle"></i> {{ product[14] }}
+                        </span>
+                    {% elif product[14] == 'Rifiutato' %}
+                        <span class="badge bg-danger fs-5 p-3">
+                            <i class="fas fa-times-circle"></i> {{ product[14] }}
+                        </span>
+                    {% elif product[14] == 'Ordinato' %}
+                        <span class="badge bg-info fs-5 p-3">
+                            <i class="fas fa-shopping-cart"></i> {{ product[14] }}
+                        </span>
+                    {% elif product[14] == 'Ricevuto' %}
+                        <span class="badge bg-primary fs-5 p-3">
+                            <i class="fas fa-box"></i> {{ product[14] }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning fs-5 p-3">
+                            <i class="fas fa-clock"></i> {{ product[14] }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Statistiche</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="stats-number text-primary">{{ images|length }}</div>
+                            <div class="text-muted small">Immagini</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="stats-number text-danger">{{ videos|length }}</div>
+                            <div class="text-muted small">Video</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Prodotto Creato</h6>
+                                <small class="text-muted">{{ product[13][:16].replace('T', ' alle ') }}</small>
+                            </div>
+                        </div>
+                        {% if product[13] != product[14] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Ultimo Aggiornamento</h6>
+                                <small class="text-muted">{{ product[14][:16].replace('T', ' alle ') }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="imageModalImg" src="" class="img-fluid" alt="">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Image modal functionality
+    const imageModal = document.getElementById('imageModal');
+    const imageModalImg = document.getElementById('imageModalImg');
+    const imageModalTitle = document.getElementById('imageModalTitle');
+
+    imageModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const imageSrc = button.getAttribute('data-bs-image');
+        const imageTitle = button.getAttribute('data-bs-title');
+        
+        imageModalImg.src = imageSrc;
+        imageModalTitle.textContent = imageTitle;
+    });
+</script>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #dee2e6;
+    }
+    
+    .image-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .image-item img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 10px;
+        transition: transform 0.2s ease;
+    }
+    
+    .image-item img:hover {
+        transform: scale(1.05);
+    }
+    
+    .video-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    
+    .video-item video {
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
