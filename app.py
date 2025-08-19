@@ -286,15 +286,32 @@ def generate_report():
     
     return render_template('report.html', products=products)
 
+@app.route('/health')
+def health_check():
+    try:
+        import sys
+        return jsonify({
+            'status': 'ok',
+            'python_version': sys.version,
+            'cwd': os.getcwd(),
+            'upload_folder': app.config['UPLOAD_FOLDER'],
+            'files': os.listdir(os.getcwd())[:10]  # First 10 files
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/products')
 def api_products():
-    conn = sqlite3.connect('miramare_products.db')
-    c = conn.cursor()
-    c.execute('SELECT * FROM products ORDER BY updated_date DESC')
-    products = c.fetchall()
-    conn.close()
-    
-    return jsonify(products)
+    try:
+        db_path = os.path.join(os.getcwd(), 'miramare_products.db')
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        c.execute('SELECT * FROM products ORDER BY updated_date DESC')
+        products = c.fetchall()
+        conn.close()
+        return jsonify(products)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     init_db()
