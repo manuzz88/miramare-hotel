@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: miramare-hotel
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "false"
+    disk:
+      name: miramare-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
