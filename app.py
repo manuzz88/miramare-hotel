@@ -10,13 +10,16 @@ import base64
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'miramare_hotel_secret_key_2024'
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
 # Ensure upload directory exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
-os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'videos'), exist_ok=True)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
+    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'videos'), exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create upload directories: {e}")
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'}
@@ -29,8 +32,15 @@ def allowed_file(filename, file_type):
     return False
 
 def init_db():
-    conn = sqlite3.connect('miramare_products.db')
-    c = conn.cursor()
+    try:
+        db_path = os.path.join(os.getcwd(), 'miramare_products.db')
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+    except Exception as e:
+        print(f"Database error: {e}")
+        # Fallback to in-memory database for read-only environments
+        conn = sqlite3.connect(':memory:')
+        c = conn.cursor()
     
     c.execute('''CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,8 +84,13 @@ def init_db():
 
 @app.route('/')
 def index():
-    conn = sqlite3.connect('miramare_products.db')
-    c = conn.cursor()
+    try:
+        db_path = os.path.join(os.getcwd(), 'miramare_products.db')
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return render_template('index.html', products=[])
     c.execute('''SELECT p.*, 
                  (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
                  (SELECT COUNT(*) FROM product_videos WHERE product_id = p.id) as video_count
