@@ -7,11 +7,34 @@ import uuid
 from PIL import Image
 import io
 import base64
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'miramare_hotel_secret_key_2024'
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://miramare_hotel_user:uGU7iPjCJy2RHgn1NBunQmW5RIpC8K6p@dpg-d2jhejh5pdvs73f847i0-a.frankfurt-postgres.render.com/miramare_hotel')
+USE_POSTGRES = POSTGRES_AVAILABLE and DATABASE_URL.startswith('postgresql')
+
+# Template helper function for datetime formatting
+@app.template_filter('format_datetime')
+def format_datetime(value):
+    """Format datetime for display in templates"""
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d alle %H:%M')
+    elif isinstance(value, str):
+        # Handle ISO format string from SQLite
+        if 'T' in value:
+            return value[:16].replace('T', ' alle ')
+        return value[:10]
+    return str(value)
 
 # Ensure upload directory exists
 try:
@@ -31,53 +54,107 @@ def allowed_file(filename, file_type):
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
     return False
 
-def init_db():
+def get_db_connection():
+    """Get database connection based on configuration"""
+    if USE_POSTGRES:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            return conn, 'postgres'
+        except Exception as e:
+            print(f"PostgreSQL connection failed: {e}")
+            print("Falling back to SQLite...")
+    
+    # Fallback to SQLite
     try:
         db_path = os.path.join(os.getcwd(), 'miramare_products.db')
         conn = sqlite3.connect(db_path)
-        c = conn.cursor()
+        return conn, 'sqlite'
     except Exception as e:
-        print(f"Database error: {e}")
-        # Fallback to in-memory database for read-only environments
+        print(f"SQLite connection failed: {e}")
+        # Last resort: in-memory database
         conn = sqlite3.connect(':memory:')
+        return conn, 'sqlite'
+
+def init_db():
+    """Initialize database tables"""
+    conn, db_type = get_db_connection()
+    
+    if db_type == 'postgres':
         c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        supplier TEXT NOT NULL,
-        price REAL NOT NULL,
-        currency TEXT DEFAULT 'EUR',
-        dimensions TEXT,
-        weight REAL,
-        weight_unit TEXT DEFAULT 'kg',
-        color TEXT,
-        material TEXT,
-        description TEXT,
-        notes TEXT,
-        status TEXT DEFAULT 'In Valutazione',
-        created_date TEXT NOT NULL,
-        updated_date TEXT NOT NULL
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS product_images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER,
-        filename TEXT NOT NULL,
-        original_name TEXT NOT NULL,
-        upload_date TEXT NOT NULL,
-        FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS product_videos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER,
-        filename TEXT NOT NULL,
-        original_name TEXT NOT NULL,
-        upload_date TEXT NOT NULL,
-        FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
-    )''')
+        # PostgreSQL syntax
+        c.execute('''CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            category VARCHAR(100) NOT NULL,
+            supplier VARCHAR(255) NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            currency VARCHAR(10) DEFAULT 'EUR',
+            dimensions TEXT,
+            weight DECIMAL(10,2),
+            weight_unit VARCHAR(10) DEFAULT 'kg',
+            color VARCHAR(100),
+            material VARCHAR(255),
+            description TEXT,
+            notes TEXT,
+            status VARCHAR(50) DEFAULT 'In Valutazione',
+            created_date TIMESTAMP NOT NULL,
+            updated_date TIMESTAMP NOT NULL
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS product_images (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+            filename VARCHAR(255) NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            upload_date TIMESTAMP NOT NULL
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS product_videos (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+            filename VARCHAR(255) NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            upload_date TIMESTAMP NOT NULL
+        )''')
+    else:
+        # SQLite syntax
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            supplier TEXT NOT NULL,
+            price REAL NOT NULL,
+            currency TEXT DEFAULT 'EUR',
+            dimensions TEXT,
+            weight REAL,
+            weight_unit TEXT DEFAULT 'kg',
+            color TEXT,
+            material TEXT,
+            description TEXT,
+            notes TEXT,
+            status TEXT DEFAULT 'In Valutazione',
+            created_date TEXT NOT NULL,
+            updated_date TEXT NOT NULL
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS product_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            upload_date TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS product_videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            upload_date TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+        )''')
     
     conn.commit()
     conn.close()
@@ -88,8 +165,7 @@ def index():
         # Ensure database is initialized
         init_db()
         
-        db_path = os.path.join(os.getcwd(), 'miramare_products.db')
-        conn = sqlite3.connect(db_path)
+        conn, db_type = get_db_connection()
         c = conn.cursor()
         c.execute('''SELECT p.*, 
                      (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
@@ -120,19 +196,32 @@ def add_product():
         notes = request.form['notes']
         status = request.form['status']
         
+        # Handle empty numeric fields for PostgreSQL
+        weight = float(weight) if weight and weight.strip() else None
+        
         current_time = datetime.now().isoformat()
         
         # Insert product into database
-        conn = sqlite3.connect('miramare_products.db')
+        conn, db_type = get_db_connection()
         c = conn.cursor()
-        c.execute('''INSERT INTO products 
-                     (name, category, supplier, price, currency, dimensions, weight, weight_unit, 
-                      color, material, description, notes, status, created_date, updated_date)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                  (name, category, supplier, price, currency, dimensions, weight, weight_unit,
-                   color, material, description, notes, status, current_time, current_time))
         
-        product_id = c.lastrowid
+        if db_type == 'postgres':
+            c.execute('''INSERT INTO products 
+                         (name, category, supplier, price, currency, dimensions, weight, weight_unit, 
+                          color, material, description, notes, status, created_date, updated_date)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+                      (name, category, supplier, price, currency, dimensions, weight, weight_unit,
+                       color, material, description, notes, status, current_time, current_time))
+            product_id = c.fetchone()[0]
+        else:
+            c.execute('''INSERT INTO products 
+                         (name, category, supplier, price, currency, dimensions, weight, weight_unit, 
+                          color, material, description, notes, status, created_date, updated_date)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (name, category, supplier, price, currency, dimensions, weight, weight_unit,
+                       color, material, description, notes, status, current_time, current_time))
+            product_id = c.lastrowid
+        
         conn.commit()
         conn.close()
         
@@ -148,10 +237,14 @@ def add_product():
                     file.save(filepath)
                     
                     # Save to database
-                    conn = sqlite3.connect('miramare_products.db')
+                    conn, db_type = get_db_connection()
                     c = conn.cursor()
-                    c.execute('INSERT INTO product_images (product_id, filename, original_name, upload_date) VALUES (?, ?, ?, ?)',
-                              (product_id, unique_filename, filename, current_time))
+                    if db_type == 'postgres':
+                        c.execute('INSERT INTO product_images (product_id, filename, original_name, upload_date) VALUES (%s, %s, %s, %s)',
+                                  (product_id, unique_filename, filename, current_time))
+                    else:
+                        c.execute('INSERT INTO product_images (product_id, filename, original_name, upload_date) VALUES (?, ?, ?, ?)',
+                                  (product_id, unique_filename, filename, current_time))
                     conn.commit()
                     conn.close()
                     
@@ -160,10 +253,14 @@ def add_product():
                     file.save(filepath)
                     
                     # Save to database
-                    conn = sqlite3.connect('miramare_products.db')
+                    conn, db_type = get_db_connection()
                     c = conn.cursor()
-                    c.execute('INSERT INTO product_videos (product_id, filename, original_name, upload_date) VALUES (?, ?, ?, ?)',
-                              (product_id, unique_filename, filename, current_time))
+                    if db_type == 'postgres':
+                        c.execute('INSERT INTO product_videos (product_id, filename, original_name, upload_date) VALUES (%s, %s, %s, %s)',
+                                  (product_id, unique_filename, filename, current_time))
+                    else:
+                        c.execute('INSERT INTO product_videos (product_id, filename, original_name, upload_date) VALUES (?, ?, ?, ?)',
+                                  (product_id, unique_filename, filename, current_time))
                     conn.commit()
                     conn.close()
         
@@ -174,11 +271,14 @@ def add_product():
 
 @app.route('/product/<int:id>')
 def view_product(id):
-    conn = sqlite3.connect('miramare_products.db')
+    conn, db_type = get_db_connection()
     c = conn.cursor()
     
     # Get product details
-    c.execute('SELECT * FROM products WHERE id = ?', (id,))
+    if db_type == 'postgres':
+        c.execute('SELECT * FROM products WHERE id = %s', (id,))
+    else:
+        c.execute('SELECT * FROM products WHERE id = ?', (id,))
     product = c.fetchone()
     
     if not product:
@@ -186,11 +286,17 @@ def view_product(id):
         return redirect(url_for('index'))
     
     # Get images
-    c.execute('SELECT * FROM product_images WHERE product_id = ? ORDER BY upload_date', (id,))
+    if db_type == 'postgres':
+        c.execute('SELECT * FROM product_images WHERE product_id = %s ORDER BY upload_date', (id,))
+    else:
+        c.execute('SELECT * FROM product_images WHERE product_id = ? ORDER BY upload_date', (id,))
     images = c.fetchall()
     
     # Get videos
-    c.execute('SELECT * FROM product_videos WHERE product_id = ? ORDER BY upload_date', (id,))
+    if db_type == 'postgres':
+        c.execute('SELECT * FROM product_videos WHERE product_id = %s ORDER BY upload_date', (id,))
+    else:
+        c.execute('SELECT * FROM product_videos WHERE product_id = ? ORDER BY upload_date', (id,))
     videos = c.fetchall()
     
     conn.close()
@@ -199,7 +305,7 @@ def view_product(id):
 
 @app.route('/edit_product/<int:id>', methods=['GET', 'POST'])
 def edit_product(id):
-    conn = sqlite3.connect('miramare_products.db')
+    conn, db_type = get_db_connection()
     c = conn.cursor()
     
     if request.method == 'POST':
@@ -218,14 +324,25 @@ def edit_product(id):
         notes = request.form['notes']
         status = request.form['status']
         
+        # Handle empty numeric fields for PostgreSQL
+        weight = float(weight) if weight and weight.strip() else None
+        
         current_time = datetime.now().isoformat()
         
-        c.execute('''UPDATE products SET 
-                     name=?, category=?, supplier=?, price=?, currency=?, dimensions=?, 
-                     weight=?, weight_unit=?, color=?, material=?, description=?, notes=?, 
-                     status=?, updated_date=? WHERE id=?''',
-                  (name, category, supplier, price, currency, dimensions, weight, weight_unit,
-                   color, material, description, notes, status, current_time, id))
+        if db_type == 'postgres':
+            c.execute('''UPDATE products SET 
+                         name=%s, category=%s, supplier=%s, price=%s, currency=%s, dimensions=%s, 
+                         weight=%s, weight_unit=%s, color=%s, material=%s, description=%s, notes=%s, 
+                         status=%s, updated_date=%s WHERE id=%s''',
+                      (name, category, supplier, price, currency, dimensions, weight, weight_unit,
+                       color, material, description, notes, status, current_time, id))
+        else:
+            c.execute('''UPDATE products SET 
+                         name=?, category=?, supplier=?, price=?, currency=?, dimensions=?, 
+                         weight=?, weight_unit=?, color=?, material=?, description=?, notes=?, 
+                         status=?, updated_date=? WHERE id=?''',
+                      (name, category, supplier, price, currency, dimensions, weight, weight_unit,
+                       color, material, description, notes, status, current_time, id))
         conn.commit()
         conn.close()
         
@@ -233,7 +350,10 @@ def edit_product(id):
         return redirect(url_for('view_product', id=id))
     
     # Get product for editing
-    c.execute('SELECT * FROM products WHERE id = ?', (id,))
+    if db_type == 'postgres':
+        c.execute('SELECT * FROM products WHERE id = %s', (id,))
+    else:
+        c.execute('SELECT * FROM products WHERE id = ?', (id,))
     product = c.fetchone()
     conn.close()
     
@@ -245,14 +365,20 @@ def edit_product(id):
 
 @app.route('/delete_product/<int:id>')
 def delete_product(id):
-    conn = sqlite3.connect('miramare_products.db')
+    conn, db_type = get_db_connection()
     c = conn.cursor()
     
     # Get files to delete
-    c.execute('SELECT filename FROM product_images WHERE product_id = ?', (id,))
-    images = c.fetchall()
-    c.execute('SELECT filename FROM product_videos WHERE product_id = ?', (id,))
-    videos = c.fetchall()
+    if db_type == 'postgres':
+        c.execute('SELECT filename FROM product_images WHERE product_id = %s', (id,))
+        images = c.fetchall()
+        c.execute('SELECT filename FROM product_videos WHERE product_id = %s', (id,))
+        videos = c.fetchall()
+    else:
+        c.execute('SELECT filename FROM product_images WHERE product_id = ?', (id,))
+        images = c.fetchall()
+        c.execute('SELECT filename FROM product_videos WHERE product_id = ?', (id,))
+        videos = c.fetchall()
     
     # Delete files from filesystem
     for image in images:
@@ -268,7 +394,10 @@ def delete_product(id):
             pass
     
     # Delete from database
-    c.execute('DELETE FROM products WHERE id = ?', (id,))
+    if db_type == 'postgres':
+        c.execute('DELETE FROM products WHERE id = %s', (id,))
+    else:
+        c.execute('DELETE FROM products WHERE id = ?', (id,))
     conn.commit()
     conn.close()
     
@@ -277,7 +406,7 @@ def delete_product(id):
 
 @app.route('/report')
 def generate_report():
-    conn = sqlite3.connect('miramare_products.db')
+    conn, db_type = get_db_connection()
     c = conn.cursor()
     c.execute('''SELECT p.*, 
                  (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count,
@@ -305,8 +434,7 @@ def health_check():
 @app.route('/api/products')
 def api_products():
     try:
-        db_path = os.path.join(os.getcwd(), 'miramare_products.db')
-        conn = sqlite3.connect(db_path)
+        conn, db_type = get_db_connection()
         c = conn.cursor()
         c.execute('SELECT * FROM products ORDER BY updated_date DESC')
         products = c.fetchall()

@@ -12,7 +12,7 @@
                     <h2 class="mb-1">{{ product[1] }}</h2>
                     <p class="text-muted mb-0">
                         <i class="fas fa-tag"></i> {{ product[2] }} | 
-                        <i class="fas fa-calendar"></i> Aggiunto il {{ product[13][:10] }}
+                        <i class="fas fa-calendar"></i> Aggiunto il {{ product[13] | format_datetime }}
                     </p>
                 </div>
                 <div class="btn-group">
@@ -213,15 +213,15 @@
                             <div class="timeline-marker bg-primary"></div>
                             <div class="timeline-content">
                                 <h6 class="mb-1">Prodotto Creato</h6>
-                                <small class="text-muted">{{ product[13][:16].replace('T', ' alle ') }}</small>
+                                <small class="text-muted">{{ product[13] | format_datetime }}</small>
                             </div>
                         </div>
-                        {% if product[13] != product[14] %}
+                        {% if product[13] != product[15] %}
                         <div class="timeline-item">
                             <div class="timeline-marker bg-info"></div>
                             <div class="timeline-content">
                                 <h6 class="mb-1">Ultimo Aggiornamento</h6>
-                                <small class="text-muted">{{ product[14][:16].replace('T', ' alle ') }}</small>
+                                <small class="text-muted">{{ product[15] | format_datetime }}</small>
                             </div>
                         </div>
                         {% endif %}

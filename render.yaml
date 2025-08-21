@@ -9,6 +9,8 @@ services:
         value: production
       - key: FLASK_DEBUG
         value: "false"
+      - key: DATABASE_URL
+        value: postgresql://miramare_hotel_user:uGU7iPjCJy2RHgn1NBunQmW5RIpC8K6p@dpg-d2jhejh5pdvs73f847i0-a.frankfurt-postgres.render.com/miramare_hotel
     disk:
       name: miramare-data
       mountPath: /opt/render/project/src
